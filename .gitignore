@@ -1,0 +1,105 @@
+# ========================
+# Core PHP ignores
+# ========================
+# Các file tạm, cache, và logs
+*.log
+*.tmp
+*.cache
+*.bak
+*.swp
+*.zip
+*.tar.gz
+
+# Thư mục upload, cache, backup
+uploads/
+cache/
+tmp/
+backup/
+sessions/
+
+# ========================
+# Composer
+# ========================
+vendor/
+composer.lock
+
+# ========================
+# Environment & Config
+# ========================
+.env
+.env.*
+.env.local
+.env.php
+.env.json
+*.ini
+*.config.php
+
+# ========================
+# IDE / Editor Files
+# ========================
+# VSCode
+.vscode/
+# PhpStorm / JetBrains
+.idea/
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# ========================
+# System Files
+# ========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ========================
+# Node.js (nếu có frontend build)
+# ========================
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+package-lock.json
+
+# ========================
+# Build / Assets
+# ========================
+/public/build/
+/public/storage/
+/public/hot
+/public/mix-manifest.json
+
+# ========================
+# Laravel-specific (nếu dùng)
+# ========================
+/storage/*
+!/storage/app/
+!/storage/framework/
+!/storage/logs/
+bootstrap/cache/
+
+# ========================
+# CodeIgniter-specific
+# ========================
+/writable/*
+/application/cache/*
+/application/logs/*
+
+# ========================
+# Symfony-specific
+# ========================
+/var/
+/vendor/
+/public/bundles/
+
+# ========================
+# PHPUnit & Testing
+# ========================
+.phpunit.result.cache
+/tests/_output/*
+coverage/
+
+# ========================
+# Custom project specific
+# ========================
+/config/database.php
