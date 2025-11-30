@@ -135,14 +135,21 @@ class FriendModel
     public function getFriendsList($user_id)
     {
         $stmt = $this->db->prepare("
-            SELECT a.id, a.username, a.fullname, a.avatar
+            SELECT 
+                a.id, a.username, a.fullname, a.avatar,
+                (
+                    SELECT AVG(m.toxicity_score) 
+                    FROM messages m 
+                    WHERE (m.sender_id = ? AND m.receiver_id = a.id) OR (m.sender_id = a.id AND m.receiver_id = ?)
+                ) as avg_toxicity_score
             FROM account a
             INNER JOIN friends f ON (f.user_id1 = a.id OR f.user_id2 = a.id)
             WHERE (f.user_id1 = ? OR f.user_id2 = ?) 
             AND f.status = 'accepted' 
             AND a.id != ?
         ");
-        $stmt->execute([$user_id, $user_id, $user_id]);
+        // Các tham số được lặp lại cho subquery và các điều kiện WHERE
+        $stmt->execute([$user_id, $user_id, $user_id, $user_id, $user_id]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }

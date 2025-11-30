@@ -11,11 +11,11 @@ class AccountController
     private $jwtHandler;
 
     public function __construct()
-    {
-        $this->db = (new Database())->getConnection();
-        $this->accountModel = new AccountModel($this->db);
-        $this->jwtHandler = new JWTHandler();
-    }
+{
+
+    $this->accountModel = new AccountModel($this->db);
+    $this->jwtHandler = new JWTHandler();
+}
 
     public function register()
     {
@@ -23,9 +23,11 @@ class AccountController
         include_once 'app/views/account/register.php';
     }
 
+    // Cập nhật phương thức login để kiểm tra trạng thái tài khoản
     public function login()
     {
         SessionHelper::start();
+
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $username = $_POST['username'] ?? '';
             $password = $_POST['password'] ?? '';
@@ -40,7 +42,18 @@ class AccountController
                 $redirectUrl = '/webdacn_quanlyclb';
                 if (isset($_SESSION['redirect_url']) && strpos($_SESSION['redirect_url'], '/webdacn_quanlyclb') === 0) {
                     $redirectUrl = $_SESSION['redirect_url'];
-                    unset($_SESSION['redirect_url']); // Xóa sau khi sử dụng
+                    unset($_SESSION['redirect_url']);
+                }
+
+                if ($account->status === 'disabled') {
+                    // Lưu thông tin user vào session tạm thời để hiển thị trong trang disable
+                    $_SESSION['disabled_user'] = [
+                        'id' => $account->id,
+                        'username' => $account->username,
+                        'disable_reason' => $account->disable_reason
+                    ];
+                    header('Location: /webdacn_quanlyclb/account/disabled');
+                    exit();
                 }
 
                 header("Location: $redirectUrl");
@@ -73,7 +86,18 @@ class AccountController
             if (empty($fullName)) $errors['fullname'] = "Vui lòng nhập fullname!";
             if (empty($password)) $errors['password'] = "Vui lòng nhập password!";
             if ($password != $confirmPassword) $errors['confirmPass'] = "Mật khẩu và xác nhận chưa khớp!";
+            // Thêm sau phần validate
+            $existingUser = $this->accountModel->getAccountByUsername($username);
+            if ($existingUser) {
+                $errors['username'] = "Tên đăng nhập đã tồn tại!";
+            }
 
+            if (!empty($email)) {
+                $existingEmail = $this->accountModel->getAccountByEmail($email);
+                if ($existingEmail) {
+                    $errors['email'] = "Email đã được sử dụng!";
+                }
+            }
             // Xử lý upload avatar
             $avatarPath = null;
             if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] == UPLOAD_ERR_OK) {
@@ -564,4 +588,124 @@ class AccountController
         }
         exit;
     }
+    // Vô hiệu hóa tài khoản
+    public function disable($id)
+    {
+        SessionHelper::requireLogin();
+
+        if (!SessionHelper::isAdmin()) {
+            $_SESSION['error'] = "Bạn không có quyền thực hiện thao tác này!";
+            header('Location: /webdacn_quanlyclb/account');
+            exit;
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $reason = $_POST['reason'] ?? '';
+
+            if (empty($reason)) {
+                $_SESSION['error'] = "Vui lòng nhập lý do vô hiệu hóa!";
+                header("Location: /webdacn_quanlyclb/account");
+                exit;
+            }
+
+            if ($this->accountModel->disableAccount($id, $reason)) {
+                $_SESSION['message'] = "Đã vô hiệu hóa tài khoản thành công!";
+            } else {
+                $_SESSION['error'] = "Có lỗi xảy ra khi vô hiệu hóa tài khoản!";
+            }
+
+            header("Location: /webdacn_quanlyclb/account");
+            exit;
+        }
+    }
+
+
+    // Kích hoạt lại tài khoản
+    public function enable($id)
+    {
+        SessionHelper::requireLogin();
+
+        if (!SessionHelper::isAdmin()) {
+            $_SESSION['error'] = "Bạn không có quyền thực hiện thao tác này!";
+            header('Location: /webdacn_quanlyclb/account');
+            exit;
+        }
+
+        if ($this->accountModel->enableAccount($id)) {
+            $_SESSION['message'] = "Đã kích hoạt lại tài khoản thành công!";
+        } else {
+            $_SESSION['error'] = "Có lỗi xảy ra khi kích hoạt tài khoản!";
+        }
+
+        header("Location: /webdacn_quanlyclb/account");
+        exit;
+    }
+
+
+    // Trang quản lý tài khoản cho admin (xem chi tiết)
+    public function manage($id)
+    {
+        SessionHelper::requireLogin();
+
+        if (!SessionHelper::isAdmin()) {
+            header('Location: /webdacn_quanlyclb');
+            exit;
+        }
+
+        $account = $this->accountModel->getAccountById($id);
+        if (!$account) {
+            $_SESSION['error'] = "Tài khoản không tồn tại!";
+            header('Location: /webdacn_quanlyclb/account');
+            exit;
+        }
+
+        $userTeams = $this->accountModel->getUserTeams($id);
+        $leaderTeams = $this->accountModel->getUserLeaderTeams($id);
+        $reactivationRequests = $this->accountModel->getReactivationRequests($id);
+
+        include_once 'app/views/account/manage.php';
+    }
+
+    public function disabled()
+    {
+        SessionHelper::start();
+
+        if (!isset($_SESSION['disabled_user'])) {
+            header('Location: /webdacn_quanlyclb/account/login');
+            exit();
+        }
+
+        include_once 'app/views/account/disabled.php';
+    }
+
+    public function requestReactivation()
+    {
+        SessionHelper::start();
+
+        if (!isset($_SESSION['disabled_user'])) {
+            header('Location: /webdacn_quanlyclb/account/login');
+            exit();
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $reason = $_POST['reason'] ?? '';
+            $user_id = $_SESSION['disabled_user']['id'];
+
+            if (empty($reason)) {
+                $_SESSION['error'] = "Vui lòng nhập lý do yêu cầu mở lại tài khoản!";
+                header('Location: /webdacn_quanlyclb/account/disabled');
+                exit;
+            }
+
+            if ($this->accountModel->createReactivationRequest($user_id, $reason)) {
+                $_SESSION['message'] = "Yêu cầu mở lại tài khoản đã được gửi thành công!";
+            } else {
+                $_SESSION['error'] = "Có lỗi xảy ra khi gửi yêu cầu!";
+            }
+
+            header('Location: /webdacn_quanlyclb/account/disabled');
+            exit;
+        }
+    }
+
 }

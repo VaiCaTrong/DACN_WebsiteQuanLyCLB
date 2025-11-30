@@ -20,14 +20,14 @@ class AccountModel
     }
 
     // Lấy tài khoản theo email
-    public function getAccountByEmail($email)
-    {
-        $query = "SELECT * FROM " . $this->table_name . " WHERE email = :email LIMIT 1";
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(":email", $email);
-        $stmt->execute();
-        return $stmt->fetch(PDO::FETCH_OBJ);
-    }
+    // public function getAccountByEmail($email)
+    // {
+    //     $query = "SELECT * FROM " . $this->table_name . " WHERE email = :email LIMIT 1";
+    //     $stmt = $this->conn->prepare($query);
+    //     $stmt->bindParam(":email", $email);
+    //     $stmt->execute();
+    //     return $stmt->fetch(PDO::FETCH_OBJ);
+    // }
 
     // Tạo tài khoản mới
     public function save($username, $fullName, $password, $role = 'user', $email = null, $phone = null, $avatar = null)
@@ -110,7 +110,8 @@ class AccountModel
      * @param int $id
      * @return bool
      */
-    public function delete($id) {
+    public function delete($id)
+    {
         try {
             $this->conn->beginTransaction();
 
@@ -131,12 +132,15 @@ class AccountModel
         }
     }
 
-    // Lấy tất cả tài khoản
+
+    // Lấy tất cả tài khoản (cập nhật để lấy thêm status)
     public function getAllAccounts()
     {
-        $query = "SELECT id, username, fullname, role, email, phone, avatar, created_at, updated_at 
-                  FROM " . $this->table_name . " 
-                  ORDER BY created_at DESC";
+        $query = "SELECT id, username, fullname, role, email, phone, avatar, 
+                     status, disable_reason, disabled_at,
+                     created_at, updated_at 
+              FROM " . $this->table_name . " 
+              ORDER BY created_at DESC";
         $stmt = $this->conn->prepare($query);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_OBJ);
@@ -177,7 +181,7 @@ class AccountModel
     }
 
 
-   public function getUserById($id)
+    public function getUserById($id)
     {
         $stmt = $this->conn->prepare("SELECT avatar, fullname FROM account WHERE id = :id");
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
@@ -223,11 +227,185 @@ class AccountModel
         $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
         return $stmt->execute();
     }
-     public function deleteAllNotifications($user_id)
+    public function deleteAllNotifications($user_id)
     {
         $stmt = $this->conn->prepare("DELETE FROM notifications WHERE user_id = :user_id");
         $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
         return $stmt->execute();
     }
 
+    // Vô hiệu hóa tài khoản
+    public function disableAccount($id, $reason)
+    {
+        try {
+            $query = "UPDATE " . $this->table_name . " 
+                  SET status = 'disabled', 
+                      disable_reason = :reason,
+                      disabled_at = NOW(),
+                      updated_at = NOW()
+                  WHERE id = :id";
+
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':reason', $reason);
+            $stmt->bindParam(':id', $id);
+
+            return $stmt->execute();
+        } catch (PDOException $e) {
+            error_log("Disable Account Error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    // Kích hoạt lại tài khoản
+    public function enableAccount($id)
+    {
+        try {
+            $query = "UPDATE " . $this->table_name . " 
+                  SET status = 'active', 
+                      disable_reason = NULL,
+                      disabled_at = NULL,
+                      updated_at = NOW()
+                  WHERE id = :id";
+
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':id', $id);
+
+            return $stmt->execute();
+        } catch (PDOException $e) {
+            error_log("Enable Account Error: " . $e->getMessage());
+            return false;
+        }
+    }
+    // Tạo yêu cầu mở lại tài khoản
+    public function createReactivationRequest($user_id, $reason)
+    {
+        try {
+            // Tạo thông báo cho admin
+            $query = "INSERT INTO notifications (user_id, title, message, link, created_at)
+                  SELECT id, 'Yêu cầu mở lại tài khoản', 
+                         CONCAT('Người dùng ', (SELECT username FROM account WHERE id = ?), ' đã gửi yêu cầu mở lại tài khoản. Lý do: ', ?),
+                         CONCAT('/webdacn_quanlyclb/account/manage/', ?),
+                         NOW()
+                  FROM account 
+                  WHERE role = 'admin'";
+
+            $stmt = $this->conn->prepare($query);
+            return $stmt->execute([$user_id, $reason, $user_id]);
+        } catch (PDOException $e) {
+            error_log("Create Reactivation Request Error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    // Kiểm tra tài khoản có bị vô hiệu hóa không
+    public function isAccountDisabled($username)
+    {
+        $query = "SELECT status, disable_reason FROM " . $this->table_name . " 
+              WHERE username = :username AND status = 'disabled'";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':username', $username);
+        $stmt->execute();
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    // Lấy danh sách câu lạc bộ mà user đã tham gia
+    public function getUserTeams($user_id)
+    {
+        try {
+            $query = "SELECT t.id, t.name, t.description, t.avatar_team, 
+                         ut.joined_at, ut.point
+                  FROM team t
+                  INNER JOIN user_team ut ON t.id = ut.team_id
+                  WHERE ut.user_id = ?
+                  ORDER BY ut.joined_at DESC";
+
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute([$user_id]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Get User Teams Error: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    // Lấy danh sách câu lạc bộ mà user là chủ nhiệm
+    public function getUserLeaderTeams($user_id)
+    {
+        try {
+            $query = "SELECT id, name, description, avatar_team, created_at
+                  FROM team
+                  WHERE user_id = ?
+                  ORDER BY created_at DESC";
+
+            $stmt = $this->conn->prepare($query);
+            $stmt->execute([$user_id]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Get User Leader Teams Error: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    public function updateReactivationRequestStatus($request_id, $status)
+    {
+        try {
+            $query = "UPDATE reactivation_requests 
+                      SET status = :status, 
+                          updated_at = NOW()
+                      WHERE id = :request_id";
+
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':status', $status);
+            $stmt->bindParam(':request_id', $request_id, PDO::PARAM_INT);
+            return $stmt->execute();
+        } catch (PDOException $e) {
+            error_log("Update Reactivation Request Status Error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function getReactivationRequests($user_id)
+    {
+        try {
+            $query = "SELECT id, reason, status, created_at, updated_at
+                      FROM reactivation_requests
+                      WHERE user_id = :user_id
+                      ORDER BY created_at DESC";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Get Reactivation Requests Error: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    public function getAccountByEmail($email)
+    {
+        $query = "SELECT * FROM account WHERE email = :email LIMIT 1";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':email', $email);
+        $stmt->execute();
+        return $stmt->fetch(PDO::FETCH_OBJ);
+    }
+
+    public function saveSocial($username, $fullname, $password, $role, $email, $phone, $avatar, $provider, $providerId)
+    {
+        $query = "INSERT INTO account 
+              (username, fullname, password, role, email, phone, avatar, provider, provider_id, created_at)
+              VALUES 
+              (:username, :fullname, :password, :role, :email, :phone, :avatar, :provider, :provider_id, NOW())";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':username', $username);
+        $stmt->bindParam(':fullname', $fullname);
+        $stmt->bindParam(':password', $password);
+        $stmt->bindParam(':role', $role);
+        $stmt->bindParam(':email', $email);
+        $stmt->bindParam(':phone', $phone);
+        $stmt->bindParam(':avatar', $avatar);
+        $stmt->bindParam(':provider', $provider);
+        $stmt->bindParam(':provider_id', $providerId);
+        return $stmt->execute();
+    }
 }

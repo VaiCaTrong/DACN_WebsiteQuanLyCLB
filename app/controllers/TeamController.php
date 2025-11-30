@@ -2,17 +2,22 @@
 require_once 'app/config/database.php';
 require_once 'app/models/TeamModel.php';
 require_once 'app/helpers/SessionHelper.php';
-require_once $_SERVER['DOCUMENT_ROOT'] . '/webdacn_quanlyclb/app/controllers/BaseController.php';
+require_once 'app/models/PostModel.php';
+require_once 'app/models/ChatModel.php'; // Thêm ChatModel
 
-class TeamController extends BaseController
+class TeamController
 {
     private $teamModel;
     private $db;
+    private $postModel;
+    private $chatModel; // Thêm thuộc tính chatModel
 
     public function __construct()
     {
-        $this->db = (new Database())->getConnection();
-        $this->teamModel = new TeamModel();
+        // Truyền kết nối DB vào các model khi khởi tạo
+        $this->teamModel = new TeamModel($this->db);
+        $this->postModel = new PostModel($this->db);
+        $this->chatModel = new ChatModel($this->db); // Khởi tạo ChatModel ở đây
     }
 
     private function isAdmin()
@@ -39,7 +44,18 @@ class TeamController extends BaseController
     {
         $teams = $this->teamModel->getAllTeams();
         $user_id = SessionHelper::getUserId();
+
+        // --- BẮT ĐẦU CẬP NHẬT ---
         $current_team_id = $this->teamModel->getCurrentTeamId($user_id);
+        $current_team_name = null; // Khởi tạo tên CLB hiện tại là null
+
+        // Nếu người dùng đang ở trong một CLB, lấy tên của CLB đó
+        if ($current_team_id) {
+            $current_team = $this->teamModel->getTeamById($current_team_id);
+            if ($current_team) {
+                $current_team_name = $current_team['name'];
+            }
+        }
         require_once 'app/views/team/list.php';
     }
 
@@ -116,7 +132,16 @@ class TeamController extends BaseController
             echo "Bạn không có quyền truy cập chức năng này!";
             exit;
         }
-        if ($this->teamModel->deleteTeam($id)) {
+
+        // Lấy thông tin team trước khi xóa
+        $team = $this->teamModel->getTeamById($id);
+        if (!$team) {
+            echo "Không tìm thấy team.";
+            exit;
+        }
+
+        // Xóa team và cập nhật role
+        if ($this->teamModel->deleteTeam($id, $team['user_id'])) {
             header('Location: /webdacn_quanlyclb/Team');
         } else {
             echo "Đã xảy ra lỗi khi xóa team.";
@@ -141,7 +166,7 @@ class TeamController extends BaseController
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['message'])) {
             $message = $_POST['message'];
-            $this->teamModel->sendTeamMessage($user_id, $current_team_id, $message);
+            $this->chatModel->sendGroupMessage($user_id, $current_team_id, $message);  // Sử dụng ChatModel
             header('Location: /webdacn_quanlyclb/Team/myTeam');
             exit;
         }
@@ -296,7 +321,8 @@ class TeamController extends BaseController
             exit;
         }
 
-        $success = $this->teamModel->addTeam(
+        // Tạo team mới và lấy ID
+        $new_team_id = $this->teamModel->addTeam(
             $request['name'],
             $request['reason'],
             1,
@@ -306,7 +332,23 @@ class TeamController extends BaseController
             $request['avatar_team']
         );
 
-        if ($success) {
+        if ($new_team_id) {
+            // Cập nhật team_id cho tài khoản người dùng
+            $stmt = $this->db->prepare("UPDATE account SET team_id = :team_id WHERE id = :user_id");
+            $stmt->bindParam(':team_id', $new_team_id, PDO::PARAM_INT);
+            $stmt->bindParam(':user_id', $request['user_id'], PDO::PARAM_INT);
+            $stmt->execute();
+
+            // Thêm user vào bảng user_team với role leader = 1
+            $stmt = $this->db->prepare("INSERT INTO user_team (user_id, team_id, point, leader) VALUES (:user_id, :team_id, :point, :leader)");
+            $stmt->execute([
+                ':user_id' => $request['user_id'],
+                ':team_id' => $new_team_id,
+                ':point' => 100,
+                ':leader' => 1
+            ]);
+
+            // Cập nhật role thành staff
             $stmt = $this->db->prepare("UPDATE account SET role = 'staff' WHERE id = :user_id");
             $stmt->bindParam(':user_id', $request['user_id'], PDO::PARAM_INT);
             $stmt->execute();
@@ -420,7 +462,6 @@ class TeamController extends BaseController
             header('Location: /webdacn_quanlyclb/Team/join?team_id=' . $team_id);
             exit;
         }
-
         require_once 'app/views/team/jointeam.php';
     }
 
@@ -529,29 +570,29 @@ class TeamController extends BaseController
         require_once 'app/views/team/userjoin.php';
     }
 
-    // Add this method to TeamController.php
-    public function manageTeam()
-    {
-        if (!SessionHelper::isStaff()) {
-            SessionHelper::set('error', "Bạn không có quyền truy cập chức năng này!");
-            header('Location: /webdacn_quanlyclb');
-            exit;
-        }
+    // // Add this method to TeamController.php
+    // public function manageTeam()
+    // {
+    //     if (!SessionHelper::isStaff()) {
+    //         SessionHelper::set('error', "Bạn không có quyền truy cập chức năng này!");
+    //         header('Location: /webdacn_quanlyclb');
+    //         exit;
+    //     }
 
-        $user_id = $this->getUserId();
-        $team = $this->teamModel->getTeamByUserId($user_id);
+    //     $user_id = $this->getUserId();
+    //     $team = $this->teamModel->getTeamByUserId($user_id);
 
-        if (!$team) {
-            SessionHelper::set('error', 'Bạn không phải là quản lý của bất kỳ câu lạc bộ nào!');
-            header('Location: /webdacn_quanlyclb');
-            exit;
-        }
+    //     if (!$team) {
+    //         SessionHelper::set('error', 'Bạn không phải là quản lý của bất kỳ câu lạc bộ nào!');
+    //         header('Location: /webdacn_quanlyclb');
+    //         exit;
+    //     }
 
-        $members = $this->teamModel->getTeamMembers($team['id']);
-        $join_requests = $this->teamModel->getJoinRequestsForTeam($team['id']);
+    //     $members = $this->teamModel->getTeamMembers($team['id']);
+    //     $join_requests = $this->teamModel->getJoinRequestsForTeam($team['id']);
 
-        require_once 'app/views/team/manageTeam.php';
-    }
+    //     require_once 'app/views/team/manageTeam.php';
+    // }
 
     public function punish()
     {
@@ -670,5 +711,97 @@ class TeamController extends BaseController
         }
         header('Location: /webdacn_quanlyclb/Team/manageTeam');
         exit;
+    }
+    public function approveJoinRequest($join_form_id, $approver_user_id)
+    {
+        try {
+            $this->db->beginTransaction();
+
+            // Lấy thông tin phiếu
+            $stmt = $this->db->prepare("SELECT user_id, team_id FROM join_form WHERE id = :id AND status = 'pending'");
+            $stmt->execute([':id' => $join_form_id]);
+            $request = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($request) {
+                $user_id = $request['user_id'];
+                $team_id_from_form = $request['team_id']; // Lấy team_id từ phiếu
+
+                // Cập nhật team_id vào bảng account
+                $this->db->prepare("UPDATE account SET team_id = :team_id WHERE id = :user_id")->execute([
+                    ':team_id' => $team_id_from_form,
+                    ':user_id' => $user_id
+                ]);
+
+                // Chuyển sang user_team với team_id từ phiếu, điểm mặc định 100 và leader = 0
+                $this->db->prepare("DELETE FROM user_team WHERE user_id = :user_id")->execute([':user_id' => $user_id]); // Xóa đội cũ nếu có
+                $this->db->prepare("INSERT INTO user_team (user_id, team_id, point, leader) VALUES (:user_id, :team_id, :point, :leader)")->execute([
+                    ':user_id' => $user_id,
+                    ':team_id' => $team_id_from_form,
+                    ':point' => 100,
+                    ':leader' => 0
+                ]);
+
+                // Xóa phiếu
+                $this->db->prepare("DELETE FROM join_form WHERE id = :id")->execute([':id' => $join_form_id]);
+
+                $this->db->commit();
+                return true;
+            }
+            $this->db->rollBack();
+            return false;
+        } catch (PDOException $e) {
+            $this->db->rollBack();
+            error_log("Lỗi khi phê duyệt yêu cầu: " . $e->getMessage());
+            return false;
+        }
+    }
+    public function manageTeam()
+    {
+        if (!SessionHelper::isStaff()) {
+            SessionHelper::set('error', "Bạn không có quyền truy cập chức năng này!");
+            header('Location: /webdacn_quanlyclb');
+            exit;
+        }
+
+        $user_id = $this->getUserId();
+        $team = $this->teamModel->getTeamByUserId($user_id);
+
+        if (!$team) {
+            SessionHelper::set('error', 'Bạn không phải là quản lý của bất kỳ câu lạc bộ nào!');
+            header('Location: /webdacn_quanlyclb');
+            exit;
+        }
+
+        $members = $this->teamModel->getTeamMembers($team['id']);
+        $join_requests = $this->teamModel->getJoinRequestsForTeam($team['id']);
+
+        // === 4. THÊM LOGIC LẤY BÀI VIẾT ===
+        $teamPosts = $this->postModel->getPostsByTeamId($team['id']);
+        // === KẾT THÚC THÊM ===
+
+        // Biến $teamPosts sẽ được tự động truyền vào view
+        require_once 'app/views/team/manageTeam.php';
+    }
+
+    //Thêm sửa xóa bài viết trong quản lý đội nhóm
+
+    /**
+     * Hiển thị trang quản lý các nhóm bị khóa (chỉ dành cho Admin).
+     */
+    public function locked()
+    {
+        SessionHelper::requireLogin();
+
+        // Chỉ Admin mới có quyền truy cập trang này
+        if (!SessionHelper::isAdmin()) {
+            $_SESSION['error'] = "Bạn không có quyền truy cập trang này.";
+            header('Location: /webdacn_quanlyclb');
+            exit;
+        }
+
+        // Sử dụng chatModel đã được khởi tạo trong constructor
+        $lockedGroups = $this->chatModel->getLockedGroups();
+
+        include 'app/views/team/locked.php';
     }
 }

@@ -13,16 +13,8 @@ $teamModel = new TeamModel();
 $requests = $teamModel->getPendingRequests();
 ?>
 
-<!DOCTYPE html>
-<html lang="vi">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Duyệt Yêu Cầu Câu Lạc Bộ</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
+<?php include 'app/views/shares/header.php'; ?>
+<style>
         :root {
             --primary: #E91E63;
             --primary-light: #FCE4EC;
@@ -332,6 +324,7 @@ $requests = $teamModel->getPendingRequests();
                 transform: translateX(100%);
                 opacity: 0;
             }
+
             to {
                 transform: translateX(0);
                 opacity: 1;
@@ -342,6 +335,7 @@ $requests = $teamModel->getPendingRequests();
             from {
                 opacity: 1;
             }
+
             to {
                 opacity: 0;
             }
@@ -355,12 +349,8 @@ $requests = $teamModel->getPendingRequests();
             animation: fadeOut 0.5s ease-out;
         }
     </style>
-</head>
 
-<body>
-    <div class="toast-container"></div>
-    <?php include 'app/views/shares/header.php'; ?>
-
+<div class="toast-container"></div>
     <div class="header">
         <div class="container">
             <div class="d-flex justify-content-between align-items-center">
@@ -439,7 +429,7 @@ $requests = $teamModel->getPendingRequests();
             </div>
         </div>
     </div>
-    
+
 
     <div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -457,8 +447,7 @@ $requests = $teamModel->getPendingRequests();
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
+<script>
         const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
         let currentTeamId = null;
         let actionType = null;
@@ -481,7 +470,9 @@ $requests = $teamModel->getPendingRequests();
             toastContainer.insertAdjacentHTML('beforeend', toastHtml);
 
             const toastElement = document.getElementById(toastId);
-            const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+            const toast = new bootstrap.Toast(toastElement, {
+                delay: 5000
+            });
             toast.show();
 
             toastElement.addEventListener('hidden.bs.toast', () => {
@@ -514,52 +505,58 @@ $requests = $teamModel->getPendingRequests();
         document.getElementById('confirmAction').addEventListener('click', function() {
             if (actionType === 'approve') {
                 fetch('/webdacn_quanlyclb/team/approveRequest', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': '<?= htmlspecialchars(SessionHelper::getCsrfToken()) ?>'
-                    },
-                    body: JSON.stringify({ team_id: currentTeamId })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    confirmModal.hide();
-                    if (data.success) {
-                        showToast('Đã duyệt yêu cầu và tạo CLB thành công!', 'success');
-                        setTimeout(() => location.reload(), 2000);
-                    } else {
-                        showToast('Có lỗi xảy ra: ' + data.message, 'error');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    confirmModal.hide();
-                    showToast('Có lỗi xảy ra khi gửi yêu cầu', 'error');
-                });
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': '<?= htmlspecialchars(SessionHelper::getCsrfToken()) ?>'
+                        },
+                        body: JSON.stringify({
+                            team_id: currentTeamId
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        confirmModal.hide();
+                        if (data.success) {
+                            showToast('Đã duyệt yêu cầu và tạo CLB thành công!', 'success');
+                            // Load lại trang ngay lập tức để xóa phiếu
+                            setTimeout(() => location.reload(), 1000); // Giảm thời gian chờ xuống 1 giây
+                        } else {
+                            showToast('Có lỗi xảy ra: ' + data.message, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        confirmModal.hide();
+                        showToast('Có lỗi xảy ra khi gửi yêu cầu', 'error');
+                    });
             } else if (actionType === 'reject') {
                 fetch('/webdacn_quanlyclb/team/rejectRequest', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': '<?= htmlspecialchars(SessionHelper::getCsrfToken()) ?>'
-                    },
-                    body: JSON.stringify({ team_id: currentTeamId })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    confirmModal.hide();
-                    if (data.success) {
-                        showToast('Đã từ chối yêu cầu thành công!', 'success');
-                        setTimeout(() => location.reload(), 2000);
-                    } else {
-                        showToast('Có lỗi xảy ra: ' + data.message, 'error');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    confirmModal.hide();
-                    showToast('Có lỗi xảy ra khi gửi yêu cầu', 'error');
-                });
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': '<?= htmlspecialchars(SessionHelper::getCsrfToken()) ?>'
+                        },
+                        body: JSON.stringify({
+                            team_id: currentTeamId
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        confirmModal.hide();
+                        if (data.success) {
+                            showToast('Đã từ chối yêu cầu thành công!', 'success');
+                            // Load lại trang ngay lập tức để xóa phiếu
+                            setTimeout(() => location.reload(), 1000); // Giảm thời gian chờ xuống 1 giây
+                        } else {
+                            showToast('Có lỗi xảy ra: ' + data.message, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        confirmModal.hide();
+                        showToast('Có lỗi xảy ra khi gửi yêu cầu', 'error');
+                    });
             }
         });
 
@@ -571,5 +568,3 @@ $requests = $teamModel->getPendingRequests();
             });
         });
     </script>
-</body>
-</html>

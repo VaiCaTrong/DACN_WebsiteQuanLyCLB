@@ -14,7 +14,6 @@ class FriendController
 
     public function __construct()
     {
-        $this->db = (new Database())->getConnection();
         $this->friendModel = new FriendModel($this->db);
         $this->accountModel = new AccountModel($this->db);
         $this->messageModel = new MessageModel($this->db); // Thêm dòng này
@@ -270,5 +269,6 @@ class FriendController
         }
         exit;
     }
+    
 }
 ?>

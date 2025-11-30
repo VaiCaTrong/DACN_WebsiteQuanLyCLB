@@ -114,11 +114,13 @@ class SessionHelper
      * Yêu cầu đăng nhập, chuyển hướng nếu chưa đăng nhập
      * @param string $redirectUrl URL để chuyển hướng sau khi đăng nhập
      */
-    public static function requireLogin($redirectUrl = '/webdacn_quanlyclb/account/login')
+    public static function requireLogin($redirectUrl = null)
     {
         if (!self::isLoggedIn()) {
             $_SESSION['redirect_url'] = $_SERVER['REQUEST_URI'];
-            header("Location: $redirectUrl");
+            // Dùng hằng số BASE_URL
+            $loginUrl = defined('BASE_URL') ? BASE_URL . '/account/login' : '/webdacn_quanlyclb/account/login';
+            header("Location: " . ($redirectUrl ?? $loginUrl));
             exit;
         }
     }
@@ -143,14 +145,65 @@ class SessionHelper
         self::start();
         session_unset();
         session_destroy();
-        header('Location: /webdacn_quanlyclb/');
+        // Dùng hằng số BASE_URL
+        $homeUrl = defined('BASE_URL') ? BASE_URL : '/webdacn_quanlyclb/';
+        header('Location: ' . $homeUrl);
         exit;
     }
     public static function getCsrfToken()
     {
-        if (!isset($_SESSION['csrf_token'])) {
+        if (empty($_SESSION['csrf_token'])) {
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         }
         return $_SESSION['csrf_token'];
+    }
+
+    public static function verifyCsrfToken($token)
+    {
+        return hash_equals($_SESSION['csrf_token'] ?? '', $token);
+    }
+
+    // Thêm vào class SessionHelper trong SessionHelper.php
+
+    /**
+     * Kiểm tra xem staff có quản lý CLB nào không
+     * @param object $db Kết nối cơ sở dữ liệu PDO
+     * @return array Danh sách CLB mà staff quản lý
+     */
+    public static function getManagedClubs($db)
+    {
+        self::start();
+        if (!self::isStaff()) {
+            return [];
+        }
+
+        $userId = self::getUserId();
+        $query = "SELECT t.id, t.name FROM team t WHERE t.user_id = :user_id";
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':user_id', $userId, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Kiểm tra xem staff có quản lý CLB cụ thể không
+     * @param int $teamId ID của CLB
+     * @param object $db Kết nối cơ sở dữ liệu PDO
+     * @return bool
+     */
+    public static function isClubManager($teamId, $db)
+    {
+        self::start();
+        if (!self::isStaff()) {
+            return false;
+        }
+
+        $userId = self::getUserId();
+        $query = "SELECT id FROM team WHERE id = :team_id AND user_id = :user_id";
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':team_id', $teamId, PDO::PARAM_INT);
+        $stmt->bindParam(':user_id', $userId, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetch() !== false;
     }
 }

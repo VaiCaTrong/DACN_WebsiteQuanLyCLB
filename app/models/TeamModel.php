@@ -76,7 +76,15 @@ class TeamModel
         $stmt->bindParam(':note', $note);
         $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
         $stmt->bindParam(':avatar_team', $avatar_team);
-        return $stmt->execute();
+
+        $result = $stmt->execute();
+
+        // Trả về ID của team vừa tạo nếu cần
+        if ($result) {
+            return $this->db->lastInsertId();
+        }
+
+        return false;
     }
 
     public function updateTeam($id, $name, $description, $quantity_user, $talent, $note, $user_id, $avatar_team = null)
@@ -93,11 +101,40 @@ class TeamModel
         return $stmt->execute();
     }
 
-    public function deleteTeam($id)
+    public function deleteTeam($id, $user_id = null)
     {
-        $stmt = $this->db->prepare("DELETE FROM team WHERE id = :id");
-        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
-        return $stmt->execute();
+        try {
+            $this->db->beginTransaction();
+
+            // 1. Cập nhật role của chủ nhiệm (staff) thành user (nếu có user_id)
+            if ($user_id) {
+                $stmt = $this->db->prepare("UPDATE account SET role = 'user' WHERE id = :user_id AND role = 'staff'");
+                $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+                $stmt->execute();
+            }
+
+            // 2. Xóa tất cả thành viên khỏi team trong bảng user_team
+            $stmt = $this->db->prepare("DELETE FROM user_team WHERE team_id = :team_id");
+            $stmt->bindParam(':team_id', $id, PDO::PARAM_INT);
+            $stmt->execute();
+
+            // 3. Đặt team_id = NULL cho tất cả tài khoản đang tham gia team này
+            $stmt = $this->db->prepare("UPDATE account SET team_id = NULL WHERE team_id = :team_id");
+            $stmt->bindParam(':team_id', $id, PDO::PARAM_INT);
+            $stmt->execute();
+
+            // 4. Xóa team
+            $stmt = $this->db->prepare("DELETE FROM team WHERE id = :id");
+            $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+            $result = $stmt->execute();
+
+            $this->db->commit();
+            return $result;
+        } catch (PDOException $e) {
+            $this->db->rollBack();
+            error_log("Lỗi khi xóa team: " . $e->getMessage());
+            return false;
+        }
     }
 
     public function getUserTeam($user_id)
@@ -111,29 +148,16 @@ class TeamModel
     public function getTeamMembers($team_id)
     {
         $stmt = $this->db->prepare("
-            SELECT a.*, ut.point
-            FROM account a
-            LEFT JOIN user_team ut ON a.id = ut.user_id
-            WHERE a.team_id = :team_id
-        ");
+        SELECT a.*, ut.point, ut.leader
+        FROM account a
+        LEFT JOIN user_team ut ON a.id = ut.user_id
+        WHERE a.team_id = :team_id
+    ");
         $stmt->bindParam(':team_id', $team_id, PDO::PARAM_INT);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // public function createTeamRequest($data)
-    // {
-    //     $stmt = $this->db->prepare("INSERT INTO team_requests (team_id, user_id, name, khoa, reason, talent, created_at, avatar_team) VALUES (:team_id, :user_id, :name, :khoa, :reason, :talent, :created_at, :avatar_team)");
-    //     $stmt->bindParam(':team_id', $data['team_id']);
-    //     $stmt->bindParam(':user_id', $data['user_id'], PDO::PARAM_INT);
-    //     $stmt->bindParam(':name', $data['name']);
-    //     $stmt->bindParam(':khoa', $data['khoa']);
-    //     $stmt->bindParam(':reason', $data['reason']);
-    //     $stmt->bindParam(':talent', $data['talent']);
-    //     $stmt->bindParam(':created_at', $data['created_at']);
-    //     $stmt->bindParam(':avatar_team', $data['avatar_team']);
-    //     return $stmt->execute();
-    // }
     public function createTeamRequest($data)
     {
         $sql = "INSERT INTO team_requests (team_id, user_id, name, khoa, reason, talent, created_at, avatar_team)
@@ -160,9 +184,14 @@ class TeamModel
 
     public function deleteTeamRequest($team_id)
     {
-        $stmt = $this->db->prepare("DELETE FROM team_requests WHERE team_id = :team_id");
-        $stmt->bindParam(':team_id', $team_id);
-        return $stmt->execute();
+        try {
+            $stmt = $this->db->prepare("DELETE FROM team_requests WHERE team_id = :team_id");
+            $stmt->bindParam(':team_id', $team_id);
+            return $stmt->execute();
+        } catch (PDOException $e) {
+            error_log("Lỗi khi xóa yêu cầu team: " . $e->getMessage());
+            return false;
+        }
     }
 
     public function getPendingRequests()
@@ -328,12 +357,13 @@ class TeamModel
                     ':user_id' => $user_id
                 ]);
 
-                // Chuyển sang user_team với team_id từ phiếu và điểm mặc định 100
+                // Chuyển sang user_team với team_id từ phiếu, điểm mặc định 100 và leader = 0
                 $this->db->prepare("DELETE FROM user_team WHERE user_id = :user_id")->execute([':user_id' => $user_id]); // Xóa đội cũ nếu có
-                $this->db->prepare("INSERT INTO user_team (user_id, team_id, point) VALUES (:user_id, :team_id, :point)")->execute([
+                $this->db->prepare("INSERT INTO user_team (user_id, team_id, point, leader) VALUES (:user_id, :team_id, :point, :leader)")->execute([
                     ':user_id' => $user_id,
                     ':team_id' => $team_id_from_form,
-                    ':point' => 100
+                    ':point' => 100,
+                    ':leader' => 0
                 ]);
 
                 // Xóa phiếu
@@ -564,5 +594,32 @@ class TeamModel
             error_log("Lỗi khi lấy danh sách phiếu gia nhập theo leader: " . $e->getMessage());
             return [];
         }
+    }
+    public function getLastInsertedTeamId()
+    {
+        return $this->db->lastInsertId();
+    }
+
+    /**
+     * Lấy danh sách các CLB mà một user quản lý (Admin/Staff)
+     */
+    public function getTeamsForUser($user_id, $role)
+    {
+        if ($role === 'admin') {
+            // Admin thấy tất cả CLB
+            $stmt = $this->db->prepare("SELECT id, name FROM team ORDER BY name ASC");
+            $stmt->execute();
+        } else {
+            // Staff chỉ thấy CLB họ làm leader (leader = 1 trong user_team)
+            $stmt = $this->db->prepare("
+                SELECT t.id, t.name
+                FROM team t
+                JOIN user_team ut ON t.id = ut.team_id
+                WHERE ut.user_id = :user_id AND ut.leader = 1
+                ORDER BY t.name ASC
+            ");
+            $stmt->execute([':user_id' => $user_id]);
+        }
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }

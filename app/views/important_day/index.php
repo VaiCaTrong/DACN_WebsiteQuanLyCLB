@@ -1,242 +1,277 @@
-<?php include 'app/views/shares/header.php'; ?>
-
 <style>
     :root {
         --primary: #E91E63;
-        --primary-light: #F8BBD0;
+        --primary-light: #FCE4EC; /* Nhạt hơn cho nền */
         --primary-dark: #C2185B;
-        --bg: #FFF0F6;
+        --bg: #FFF9FB; /* Nền body nhẹ nhàng hơn */
         --white: #fff;
-        --success: #FCE4EC;
-        --success-border: #E91E63;
-        --error: #FFEBEE;
+        --success-bg: #E8F5E9; /* Xanh lá nhạt */
+        --success-border: #4CAF50;
+        --error-bg: #FFEBEE; /* Đỏ nhạt */
         --error-border: #F44336;
+        --text-color: #444; /* Đậm hơn chút */
+        --shadow-light: 0 4px 12px rgba(233, 30, 99, 0.08);
+        --shadow-medium: 0 6px 20px rgba(233, 30, 99, 0.12);
     }
 
-    body {
-        background: var(--bg);
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        color: var(--primary-dark);
-        margin: 0;
-        padding: 0;
-        padding-top: 80px;
-        /* Thêm padding-top để tránh header che, điều chỉnh dựa trên chiều cao header (70px + khoảng đệm) */
-    }
-
-    .container {
-        max-width: 900px;
-        margin: 0 auto 0 auto;
+    /* Container chính */
+    .important-day-container {
+        max-width: 1000px; /* Rộng hơn chút */
+        margin: 20px auto; /* Thêm margin top */
+        padding: 2rem 2.5rem; /* Tăng padding */
         background: var(--white);
-        border-radius: 18px;
-        box-shadow: 0 6px 32px rgba(233, 30, 99, 0.08);
+        border-radius: 16px; /* Bo tròn hơn */
+        box-shadow: var(--shadow-medium);
     }
 
-    .user-info {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+    /* Tiêu đề trang */
+    .page-header {
+        text-align: center;
+        color: var(--primary);
+        margin-bottom: 2rem; /* Tăng khoảng cách dưới */
+        font-size: 2.4em; /* To hơn */
+        font-weight: 600; /* Đậm vừa */
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid var(--primary-light);
+        padding-bottom: 1rem;
+    }
+     .page-header i {
+        margin-right: 10px;
+        vertical-align: middle; /* Căn icon đẹp hơn */
+     }
+
+    /* Khung thông tin User */
+    .user-info-box { /* Đổi tên class */
         background: var(--primary-light);
         border-radius: 10px;
-        padding: 18px 24px;
-        margin-bottom: 28px;
-        box-shadow: 0 2px 8px rgba(233, 30, 99, 0.06);
-    }
-
-    .user-info strong {
+        padding: 1rem 1.5rem; /* Giảm padding chút */
+        margin-bottom: 1.5rem; /* Giảm khoảng cách dưới */
+        border-left: 5px solid var(--primary);
         color: var(--primary-dark);
+        font-size: 1.05em;
+    }
+    .user-info-box strong {
+        font-weight: 600;
     }
 
-    .user-info a {
-        color: var(--primary-dark);
-        font-weight: bold;
-        text-decoration: none;
-        transition: color 0.2s;
-    }
-
-    .user-info a:hover {
-        color: var(--primary);
-        text-decoration: underline;
-    }
-
-    h1 {
+    /* Thông báo */
+    .message-box { /* Đổi tên class */
+        padding: 0.8rem 1.25rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
         text-align: center;
-        color: var(--primary);
-        margin-bottom: 32px;
-        font-size: 2.2em;
-        letter-spacing: 1px;
+        font-size: 1em;
+        display: flex; /* Dùng flex để icon và text căn giữa */
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
     }
-
-    .message {
-        padding: 12px 18px;
-        border-radius: 6px;
-        margin-bottom: 18px;
-        text-align: center;
-        font-size: 1.1em;
+    .message-box i {
+        font-size: 1.2em;
     }
-
     .success-message {
-        background: var(--success);
-        color: var(--primary-dark);
+        background: var(--success-bg);
+        color: var(--success-border);
         border-left: 5px solid var(--success-border);
     }
-
     .error-message {
-        background: var(--error);
-        color: #C62828;
+        background: var(--error-bg);
+        color: var(--error-border);
         border-left: 5px solid var(--error-border);
     }
 
-    .add-btn {
+    /* Nút Thêm */
+    .add-day-btn { /* Đổi tên class */
         display: block;
         width: fit-content;
-        margin: 0 auto 32px auto;
+        margin: 0 auto 2rem auto; /* Tăng khoảng cách dưới */
         background: var(--primary);
-        color: #fff;
-        padding: 12px 28px;
-        border-radius: 24px;
+        color: var(--white);
+        padding: 0.8rem 1.8rem; /* Điều chỉnh padding */
+        border-radius: 50px; /* Bo tròn hoàn toàn */
         font-size: 1.1em;
-        font-weight: bold;
+        font-weight: 500; /* Mỏng hơn chút */
         text-decoration: none;
-        box-shadow: 0 2px 8px rgba(233, 30, 99, 0.08);
-        transition: background 0.2s, box-shadow 0.2s;
+        box-shadow: var(--shadow-light);
+        transition: all 0.3s ease;
+        border: none;
     }
-
-    .add-btn:hover {
+    .add-day-btn:hover {
         background: var(--primary-dark);
-        box-shadow: 0 4px 16px rgba(233, 30, 99, 0.12);
+        box-shadow: var(--shadow-medium);
+        transform: translateY(-2px);
     }
+     .add-day-btn i {
+         margin-right: 8px;
+     }
 
-    .days-list {
+    /* Danh sách ngày */
+    .days-grid { /* Đổi tên class */
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 24px;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Responsive hơn */
+        gap: 1.5rem; /* Khoảng cách vừa phải */
         padding: 0;
         margin: 0;
         list-style: none;
     }
 
-    @media (max-width: 900px) {
-        .days-list {
-            grid-template-columns: 1fr;
-        }
-    }
-
-    .day-item {
-        background: var(--primary-light);
-        border-radius: 14px;
-        box-shadow: 0 2px 12px rgba(233, 30, 99, 0.07);
-        padding: 24px 20px 20px 20px;
-        position: relative;
-        border-left: 6px solid var(--primary);
+    /* Từng mục ngày */
+    .day-card { /* Đổi tên class */
+        background: var(--white);
+        border-radius: 12px;
+        box-shadow: var(--shadow-light);
+        padding: 1.5rem;
+        border-left: 5px solid var(--primary);
         display: flex;
         flex-direction: column;
-        min-height: 180px;
+        transition: box-shadow 0.3s ease;
+    }
+    .day-card:hover {
+        box-shadow: var(--shadow-medium);
     }
 
-    .day-title {
+    .day-card-header { /* Nhóm tiêu đề và ngày */
+        margin-bottom: 0.8rem;
+        border-bottom: 1px dashed var(--primary-light);
+        padding-bottom: 0.8rem;
+    }
+
+    .day-card-title {
         color: var(--primary-dark);
         font-size: 1.3em;
-        margin-bottom: 8px;
-        font-weight: bold;
+        margin: 0 0 0.3rem 0; /* Giảm margin bottom */
+        font-weight: 600;
         display: flex;
         align-items: center;
         gap: 8px;
     }
-
-    .day-title i {
+    .day-card-title i {
         color: var(--primary);
-        font-size: 1.1em;
+        font-size: 1em; /* Nhỏ hơn chút */
     }
 
-    .day-date {
+    .day-card-date {
         color: var(--primary);
-        font-weight: bold;
-        margin-bottom: 8px;
+        font-weight: 500; /* Mỏng hơn */
         display: block;
-        font-size: 1.1em;
-    }
-
-    .day-description {
-        flex: 1;
-        margin-bottom: 14px;
-        color: #444;
-    }
-
-    .action-links {
+        font-size: 1em;
         display: flex;
-        gap: 12px;
-        margin-top: auto;
+        align-items: center;
+        gap: 6px;
+    }
+     .day-card-date i {
+         font-size: 0.9em;
+     }
+
+    .day-card-description {
+        flex-grow: 1; /* Đẩy nút xuống dưới */
+        margin-bottom: 1rem;
+        color: var(--text-color);
+        line-height: 1.6; /* Dãn dòng */
     }
 
-    .action-links a {
+    .day-card-actions { /* Đổi tên class */
+        display: flex;
+        gap: 10px;
+        margin-top: auto; /* Đẩy xuống dưới cùng */
+    }
+
+    .day-card-actions a {
         color: var(--primary-dark);
-        background: #fff;
-        border: 1px solid var(--primary-dark);
-        padding: 6px 18px;
+        background: var(--primary-light);
+        padding: 0.4rem 1rem;
         border-radius: 20px;
         font-weight: 500;
         text-decoration: none;
-        transition: background 0.2s, color 0.2s;
-        font-size: 1em;
+        transition: all 0.2s ease;
+        font-size: 0.9em;
+        border: 1px solid transparent;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .day-card-actions a:hover {
+        background: var(--primary);
+        color: var(--white);
+        border-color: var(--primary-dark);
+    }
+    /* Style riêng cho nút xóa */
+    .day-card-actions a.delete-link:hover {
+        background: var(--error-border);
+        border-color: #C62828;
     }
 
-    .action-links a:hover {
-        background: var(--primary-dark);
-        color: #fff;
+    /* Thông báo khi không có ngày nào */
+    .no-days-message {
+        text-align: center;
+        color: #777;
+        padding: 2rem;
+        background-color: #f9f9f9;
+        border-radius: 8px;
+        border: 1px dashed #ddd;
     }
 </style>
 
-<div class="container">
-    <h1><i class="fas fa-calendar-day"></i> Danh sách ngày quan trọng</h1>
+<div class="important-day-container">
+    <h1 class="page-header"><i class="fas fa-calendar-heart"></i>Ngày Quan Trọng Của Bạn</h1>
 
-    <div class="user-info">
-        <div>
-            <i class="fas fa-user-circle"></i>
-            Xin chào, <strong><?php echo htmlspecialchars($_SESSION['username']); ?> hãy thêm ngày quan trọng của mình nhé!</strong>
-        </div>
+    <div class="user-info-box">
+        <i class="fas fa-user-circle me-2"></i>
+        Xin chào, <strong><?php echo htmlspecialchars($_SESSION['username'] ?? 'Bạn'); ?></strong>! Hãy quản lý những ngày đặc biệt của mình nhé.
     </div>
 
     <?php if (isset($_SESSION['message'])): ?>
-        <div class="message success-message">
+        <div class="message-box success-message">
             <i class="fas fa-check-circle"></i>
-            <?php echo htmlspecialchars($_SESSION['message']); ?>
+            <span><?php echo htmlspecialchars($_SESSION['message']); ?></span>
         </div>
         <?php unset($_SESSION['message']); ?>
     <?php endif; ?>
 
     <?php if (isset($_SESSION['error'])): ?>
-        <div class="message error-message">
-            <i class="fas fa-exclamation-circle"></i>
-            <?php echo htmlspecialchars($_SESSION['error']); ?>
+        <div class="message-box error-message">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span><?php echo htmlspecialchars($_SESSION['error']); ?></span>
         </div>
         <?php unset($_SESSION['error']); ?>
     <?php endif; ?>
 
-    <a href="/webdacn_quanlyclb/ImportantDay/add" class="add-btn">
-        <i class="fas fa-plus"></i> Thêm ngày quan trọng
+    <a href="/webdacn_quanlyclb/ImportantDay/add" class="add-day-btn">
+        <i class="fas fa-plus"></i> Thêm Ngày Mới
     </a>
 
-    <ul class="days-list">
-        <?php foreach ($days as $day): ?>
-            <li class="day-item">
-                <div class="day-title">
-                    <i class="fas fa-star"></i>
-                    <?php echo htmlspecialchars($day->title); ?>
-                </div>
-                <span class="day-date">
-                    <i class="fas fa-calendar-alt"></i>
-                    <?php echo htmlspecialchars($day->date); ?>
-                </span>
-                <div class="day-description">
-                    <?php echo htmlspecialchars($day->description); ?>
-                </div>
-                <div class="action-links">
-                    <a href="/webdacn_quanlyclb/ImportantDay/edit/<?php echo $day->id; ?>"><i class="fas fa-edit"></i> Sửa</a>
-                    <a href="/webdacn_quanlyclb/ImportantDay/delete/<?php echo $day->id; ?>" onclick="return confirm('Bạn có chắc muốn xóa?');"><i class="fas fa-trash-alt"></i> Xóa</a>
-                </div>
-            </li>
-        <?php endforeach; ?>
-    </ul>
+    <?php if (empty($days)): ?>
+        <div class="no-days-message">
+            <p><i class="fas fa-info-circle fa-2x mb-3 text-muted"></i></p>
+            <p>Bạn chưa thêm ngày quan trọng nào.</p>
+        </div>
+    <?php else: ?>
+        <ul class="days-grid">
+            <?php foreach ($days as $day): ?>
+                <li class="day-card">
+                    <div class="day-card-header">
+                        <h3 class="day-card-title">
+                            <i class="fas fa-star text-warning"></i> <?php echo htmlspecialchars($day->title); ?>
+                        </h3>
+                        <span class="day-card-date">
+                            <i class="fas fa-calendar-alt"></i>
+                            <?php echo date('d/m/Y', strtotime(htmlspecialchars($day->date))); // Định dạng lại ngày ?>
+                        </span>
+                    </div>
+                    <div class="day-card-description">
+                        <?php echo nl2br(htmlspecialchars($day->description)); // Hiển thị xuống dòng ?>
+                    </div>
+                    <div class="day-card-actions">
+                        <a href="/webdacn_quanlyclb/ImportantDay/edit/<?php echo $day->id; ?>"><i class="fas fa-edit"></i> Sửa</a>
+                        <a href="/webdacn_quanlyclb/ImportantDay/delete/<?php echo $day->id; ?>" 
+                           class="delete-link" 
+                           onclick="return confirm('Bạn có chắc chắn muốn xóa ngày quan trọng \'<?php echo htmlspecialchars(addslashes($day->title)); ?>\'?');">
+                           <i class="fas fa-trash-alt"></i> Xóa
+                        </a>
+                    </div>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+    <?php endif; ?>
     
 </div>
-<?php include 'app/views/shares/footer.php'; ?>
